@@ -1,2 +1,7 @@
 /inventory/*
 /host_vars/*
+/group_vars/*
+
+/_inventory/
+/_host_vars/
+/_group_vars/
