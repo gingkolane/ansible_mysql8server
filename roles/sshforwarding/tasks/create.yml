@@ -1,0 +1,52 @@
+---
+# ===========================================================================
+# this code is to to create ssh tunnel between local server and remote server
+# from [port in remote server] to [local port]
+# Main steps:
+# 1. create dbmigusr ssh user and enable PasswordAuthentication for a short time
+# 2. ensure the dest port is idle, if it's in use, stop the process
+# 3. start create ssh tunnel between local server and remote server
+# 4. disable PasswordAuthentication after ssh tunnel creation
+# Q:
+# this time, I use ssh password to create ssh tunnel instead of ssh key
+# ===========================================================================
+
+# # 1. prepare the private key for sshgate ------------------
+# - name: copy sshgate's authorized private key into atadmin folder
+#   copy:
+#     src: sshgate.pvtkey
+#     dest: ~/sshgate.pvtkey
+#     mode: 0600
+#   become: false
+
+# 2. ensure the dest port is idle, if it's in use, stop the process. -----------
+- name: Show previous sessions on local dest port
+  # this command only to check port status, and it cannot kill ports
+  shell: "ps axuf | grep {{ sshforwarding.local_port }} | grep ssh | awk '{print \"kill -9 \" $2}'"
+  register: port_process
+
+- name: Kill previous sessions on local dest port
+  shell: "{{ port_process_item }}"
+  with_items:
+    - "{{ port_process.stdout_lines }}"
+  loop_control:
+    loop_var: port_process_item
+
+# 3. start create ssh tunnel between local server and remote server ------------
+- debug: msg="ssh -o StrictHostKeyChecking=no -N -f -L {{ sshforwarding.local_port }}:{{ sshforwarding.remote_server }}:{{ sshforwarding.remote_port }} sshgate@localhost -p {{ ssh_port }} -i sshgate.pvtkey"
+- name: create ssh tunnel between remote_server's port and local port
+  shell: >
+    ssh -o StrictHostKeyChecking=no -N -f -L
+    {{ sshforwarding.local_port }}:{{ sshforwarding.remote_server }}:{{ sshforwarding.remote_port }}
+    sshgate@localhost -p {{ ssh_port }} -i sshgate.pvtkey
+  become: false
+  register: ssh_result
+  retries: 99
+  until: ssh_result.stderr.find('Address already in use') != -1
+
+# # 4. delete the private key for sshgate -----------------------------------
+# - name: delete sshgate's authorized private key from atadmin folder
+#   file:
+#     path: ~/sshgate.pvtkey
+#     state: absent
+#   become: false

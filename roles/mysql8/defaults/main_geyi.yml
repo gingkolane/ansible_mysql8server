@@ -1,0 +1,182 @@
+---
+# =============================================================================
+# These are the variables required to run this mysql role.
+# ==============================================================================
+
+# Variables defined in my.cnf, values given in other files --------------------
+
+# server_id, variable stored in group_vars/all.yml
+# Each server must be designated a server id, otherwise there would be some errors in MySQL replication.
+# Example:
+# mysql_server_id:
+#   hostname: 1
+
+# port, variables stored in vars/main
+# The port for mysql server to listen, defined in my.cnf,
+# default:
+# mrd_ports:
+#   mysql: 3306
+
+# --------Memory settings adjusted to different server sizes ------------------
+# (default values optimized ~512MB RAM, need to change them to specific server in host_vars/hostname
+
+# 512 RAM
+# mysql_cnf:
+#   key_buffer_size: "256M"
+#   max_allowed_packet: "64M"  # "512M"
+#   table_open_cache: "256"
+#   sort_buffer_size: "1M"
+#   read_buffer_size: "1M"
+#   read_rnd_buffer_size: "4M"
+#   myisam_sort_buffer_size: "64M"
+#   thread_cache_size: "8"
+#   query_cache_type: "0"
+#   query_cache_size: "16M"
+#   query_cache_limit: "1M"
+#   max_connections: "151"
+#   tmp_table_size: "16M"
+#   max_heap_table_size: "16M"
+#   group_concat_max_len: "1024"
+#   join_buffer_size: "262144"
+# ==============================================================================
+
+# mysql root user used in inital secure install, our custom value is stored in role's vars
+# default mysql root user is root, and password random generated.
+# mysql_root_user: root
+# mysql_root_password: [randomly generated in centos7 install]
+
+#==================== Custom mysql privgroups====================================
+
+# We define the concept of mysql privroups.
+# Mysql privgroups is a named collection of privileges that we have developed.
+# It is equivalent to the role concept in mysql 8, only it is simpler to use and build. You group privgroup like you grant priv.
+# The values of different privgroups are given in group_vars/all.yml
+
+# Below are privileges to choose from in mysql database:
+# ALTER, ALTER ROUTINE,
+# CREATE, CREATE ROUTINE, CREATE TABLESPACE, CREATE TEMPORARY TABLES, CREATE USER, CREATE VIEW,
+# DROP, EVENT, EXECUTE, FILE, INDEX, LOCK TABLES, PROCESS, REFERENCES, RELOAD,
+# SHOW DATABASES, SHOW VIEW,
+# SHUTDOWN, SUPER, TRIGGER, UPDATE
+# REPLICATION CLIENT, REPLICATION SLAVE --
+# These two are not given defined roles, they are used directly in mysql replication.
+
+# mysql_privgroup:
+# # 1. For use in: db_mig_from,pentaho_int_from, pentaho_wh_from, pentaho_rp_from
+#   dt_view1: SELECT
+# # 2. For use in: log_pm, web_rp
+#   dt_view2: SELECT,SHOW VIEW
+# # 3. For use in: log tables
+#   dt_insert: INSERT
+# # 4. For use in: scrapyonrivers, web_to_yh
+#   dt_entry: SELECT,INSERT,UPDATE
+# # 5. Pentaho related: pentaho_int_to, pentaho_wh_to, pentaho_rp_to
+#   dt_int: SELECT,INSERT,UPDATE,DROP
+# # 6. For use by: database designer (teammates)
+#   db_design: SELECT,CREATE,ALTER,DROP,CREATE VIEW,SHOW VIEW
+#
+# # 7. For use in data migration only: for migration user (dbmiguser) at the receiving end
+#   db_mig_to: SELECT,INSERT,CREATE,CREATE VIEW,SHOW VIEW,LOCK TABLES,DROP,REFERENCES,ALTER
+#   db_mig_toplus: SUPER,RELOAD
+#
+# # 8. For use in mysql replicaton:
+#   # On slavehost: repl_agent is user with ability to execute REPLICATION
+#   repl_agent: SELECT,REPLICATION CLIENT,SHOW DATABASES,SUPER,PROCESS
+#   repl_agentplus: CREATE,INSERT
+#   # On masterhost: replicationuser is a user with ability to look up replication master UUID.
+#   repl_user: REPLICATION SLAVE
+#   # Ref: https://docs.oracle.com/cd/E17952_01/mysql-monitor-2.3-en/mem-agent-rights.html
+#
+# # 9. For use in app server:
+#   app_crucible: ALTER,CREATE,DELETE,DROP,INDEX,INSERT,LOCK TABLES,REFERENCES,SELECT,UPDATE
+#
+# # 10. For use in percona:
+#   app_percona: "????????????????????????????"
+#   app_perconaplus: "????????????????????????????"
+#
+# # 11. user to create view or triggers or procedures:
+#   # DROP privilege is not necessary, this privilege is to drop trigger/procedure when we need to alter them.
+#
+#   # privileges for user who create view
+#   sys_view: CREATE VIEW,SELECT # The same privilege for both INVOKER and DEFINER type.
+#
+#   # privileges for user who create trigger
+#   # trigger has no SQL SECURITY called INVOKER
+#   # The content the triggers need further privileges, such as INSERT,UPDATE
+#   sys_trigger: TRIGGER,SELECT
+#
+#   # privileges for user who create event
+#   sys_event: EXECUTE
+#
+#   # privileges for user who create procedure
+#   # The content the triggers need further privileges, such as SELECT,INSERT,UPDATE,CREATE
+#   # procedure whose SQL SECURITY = INVOKER only need "CREATE ROUTINE" priv
+#   sys_procedure: CREATE ROUTINE
+#   # But procedure whose SQL SECURITY = DEFINER need "CREATE ROUTINE" and "EXECUTE" priv
+#   run_procedure: EXECUTE
+#   # A privilege to create tables
+#   db_create: CREATE
+
+
+
+# ==============vars required for mysql replication=============================
+
+# --------Mysql replication related configuration settings --------------------
+# These variables are given in my_repl.cnf.j2 and will be templated to the includedir
+# and be attached to my.cnf as part of replication setup, in mysql_repl role
+# At bottom of my.cnf:
+# # {% if mysql_config_include_files | length %}
+# * IMPORTANT: Additional settings that can override those from this file!
+#   The files must end with '.cnf', otherwise they'll be ignored.
+# !includedir {{ mysql_config_include_dir }}
+# {% endif %}
+
+#   log_bin: "mysql-bin"
+#   log_bin_index: "mysql-bin.index"
+#   binlog_format: ROW
+#   expire_logs_days: 30
+#   max_binlog_size: 100M
+#   log_slave_updates: true
+#   master_info_repository: table
+#   relay_log_info_repository: table
+#   gtid_mode: "on"
+#   enforce_gtid_consistency: true
+
+# # ----- vars required for mysql replication that are set in repl_vars.yml --------------
+# repl_vars:
+#
+# - repl_name: dt_s1_s2  #froms1tos2
+#   repl_tags: data or log
+#
+#   #server settings:
+#   masterhost: s1
+#   #masterport: 7878  # default mysql port
+#   slavehost: s2
+#   slaveport: repl_port1  # port on slavehost that is sshtunneled to masterhost's mysql port 7878
+#
+#   #mysql user for replication
+#   repl_user: s1_s2 # user is given different priv on masterhost and slavehostport_forwardintomaster
+#   # repl_user on masterhost has priv of replication slaves, for slaves to connect. repl_slaveuser.
+#   # repl_user on slavehost has priv of replication agent, etc, for slaves to excute 'start slave'.
+#
+#   # other replication configuration:
+#   replicate_wild_do_table:
+#   - db.*
+#   replicate_rewrite_db:
+#   - "db_alias->db"
+
+# These are in the vars/main in this whole
+# replicate_wild_ignore_table:
+# - mysql
+# - information_schema
+# - performance_schema
+# - sys
+
+# ==============vars required for mysql migration===============================
+# # ----- vars required for mysql migration that are set in dbmig_vars.yml -----
+# origin_server:
+#   S1: 11.11.11.11
+# mig_vars:
+#   - { origin_server: "S1",  origin_db: "db1",  target_server: "S2",  target_db: "db1" }
+
+# ==============================================================================

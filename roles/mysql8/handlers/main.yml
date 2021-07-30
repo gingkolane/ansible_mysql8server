@@ -1,0 +1,14 @@
+---
+# Handler to handle DB tier notifications
+
+- name: restart mysql
+  service: name=mysqld state=restarted
+
+- name: restart ssh
+  service: name=sshd state=restarted
+
+- name: reload firewalld
+  shell: firewall-cmd --reload
+
+- name: reset master
+  command: mysql -NBe "reset master"

@@ -1,0 +1,17 @@
+---
+# role - mysql
+# ===================================================================
+# This ansible is to set mysql configuration
+# include:
+#   mysql_install.yml
+#   mysql_security.yml
+#   mysql_db_users.yml
+#   mysql_repl.yml - be call seperately
+#   mysql_dbmig.yml - be call seperately
+# ===================================================================
+
+# - include: mysql_install.yml # necessary vars: mysql_server_id
+# - include: mysql_security.yml
+# - include: mysql_db_users.yml
+# - include: mysql_repl.yml
+# - include: mysql_dbmig.yml

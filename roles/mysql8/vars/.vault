@@ -1,0 +1,14 @@
+---
+# Custom variables we use for our own servers for the mysql role
+
+# custom mysql port:
+vault_mrd_ports:
+  mysql: 7878
+
+# Root user of mysql server
+# The default root user installed by mysql - almost always root, defined
+vault_mysql_root_user: mrdroot
+vault_mysql_root_password: Tertyu34%^UYX
+# mysql_root_password: '*80EBFA4EEE7FD7BFF9A477F9C44604F6C4FB5571'
+# To encrypt use below in sqlyog:
+# SELECT PASSWORD('Tertyu34%^UYX');

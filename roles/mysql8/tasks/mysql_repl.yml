@@ -1,0 +1,163 @@
+---
+# ==============================================================================
+# this code is for MySQL replicate.
+# for -----mutli master - mutli slave-----
+# necessary variables:
+#   1. host_vars
+#   2. repl_vars
+#   3. cgt.yml # password_vault
+# Main steps:
+# on master servers =========
+# 1. Create the replication slave user on master server
+# on master servers =========
+# 2. configuration on slave server
+# 2.1 create repl agent user and set credentials
+# 2.2 config replicate_ related vars in my.cnf
+# 2.3 restart to let my.cnf take effect.
+# 2.4 create ssh tunnel for mysql master port
+# 2.5 set the master server information
+# 3. start replication
+# ==============================================================================
+
+
+# root user login credentials, .my.cnf is to put the credentials informations
+- name: copy .my.cnf file with root password credentials
+  template:
+    src: root-my.cnf.j2
+    # dest: ~/.my.cnf
+    dest: "{{ mysql_root_home }}/.my.cnf"
+    mode: 0600
+
+# we can use this to include repl_my.cnf to include configuration of replciation
+# - name: Copy my.cnf override files into include directory.
+#   template:
+#     src: repl-my.cnf.j2
+#     dest: "{{ mysql_config_include_dir }}"   # /etc/my.cnf.d
+#     owner: root
+#     group: root
+#     mode: 0644
+#     force: yes
+#
+#   notify: restart mysql
+# Prepare master and slave to start replication.
+
+
+mysql_config_include_files: []
+#  - src: path/relative/to/playbook/file.cnf
+#  - { src: path/relative/to/playbook/anotherfile.cnf, force: yes }
+
+# ==================== on master servers ====================
+# 1. Create the replication slave user on master server
+- name: Create the replication slave user in all master servers
+  mysql_user:
+    name: "{{ item.repl_user }}"
+    password: "{{ password_vault.mysql_user[item.repl_user] }}"
+    host: "{{ hostvars[item.slavehost]['ansible_host'] }}"
+    priv: "*.*:{{ mysql_privgroup.repl_user }}"
+    state: present
+  with_items: "{{ repl_vars }}"
+  when: item.masterhost == inventory_hostname and item.repl_tags == repl_tags  #defined in playbook dbrepl.yml
+
+# ==================== on master servers ====================
+# 2. configuration on slave server---------------
+# 2.1 create repl agent user
+- name: Create replication agent user in all slave servers
+  mysql_user:
+    name: "{{ item.repl_user }}"
+    password: "{{ password_vault.mysql_user[item.repl_user] }}"
+    host: "localhost"
+    priv: "*.*:{{ mysql_privgroup.repl_agent }}/mysql.*:{{ mysql_privgroup.repl_agentplus }}"
+    state: present
+  with_items: "{{ repl_vars }}" # repl_vars is the summariy of replication related variables "repl_vars" defined in repl_vars,
+  when: item.slavehost == inventory_hostname and item.repl_tags == repl_tags
+
+# use repl_user credentials
+- name: copy .my.cnf file with repl_user password credentials
+  template:
+    src: repl-my.cnf.j2
+    # dest: ~/.my.cnf
+    dest: "{{ mysql_root_home }}/.my.cnf"
+    mode: 0600
+  with_items: "{{ repl_vars }}"
+  when: item.slavehost == inventory_hostname and item.repl_tags == repl_tags
+
+# 2.2 config replicate_ related vars in my.cnf
+# Set composite replication database (or tables) in my.cnf---------------------
+# replicate_wild_do_table, replicate_wild_ignore_table, replicate_rewrite_db
+# By adding three varialbes using lineinfine and insertafter
+
+- name: update [replicate_wild_do_table] databases/tables in my.cnf
+  lineinfile:   # Add a line to a file if it does not exist, without passing regexp
+    path: /etc/my.cnf
+    insertafter: '# replicate_wild_do_table'
+    line: "replicate_wild_do_table = {{item[1]}}"
+  with_subelements:
+    - "{{ repl_vars }}"
+    - replicate_wild_do_table
+  when: item[0].slavehost == inventory_hostname and item[0].repl_tags == repl_tags
+
+- name: update [replicate_wild_ignore_table] databases/tables in my.cnf
+  lineinfile:
+    path: /etc/my.cnf
+    insertafter: '# replicate_wild_ignore_table'
+    line: "replicate_wild_ignore_table = {{item[1]}}"
+  with_subelements:
+    - "{{ repl_vars }}"
+    - replicate_wild_ignore_table
+  when: item[0].slavehost == inventory_hostname and item[0].repl_tags == repl_tags
+
+- name: update [replicate_rewrite_db] databases/tables in my.cnf
+  lineinfile:
+    path: /etc/my.cnf
+    insertafter: '# replicate_rewrite_db'
+    line: "replicate_rewrite_db = {{item[1]}}"
+  with_subelements:
+    - "{{ repl_vars }}"
+    - replicate_rewrite_db
+  when: item[0].slavehost == inventory_hostname and item[0].repl_tags == repl_tags
+
+# 2.3 restart to let my.cnf take effect.
+- name: Restart slave server
+  service: name=mysqld state=restarted
+  with_items: "{{ repl_vars }}"
+  when: item.slavehost == inventory_hostname and item.repl_tags == repl_tags
+  register: is_slave
+
+# 2.4 create ssh tunnel for mysql master port ------------
+- name: call sshtunnel role to create the repl_vars ssh tunnel
+  include_role:
+    name: sshforwarding
+    tasks_from: create
+  vars:
+    sshforwarding:
+      remote_server: "{{ hostvars[item.masterhost]['ansible_host'] }}" # repl_vars
+      remote_port: "{{ item.masterport|default(mysql_port) }}" #all
+      local_server: localhost
+      local_port: "{{ repl_ports[item.slaveport] }}" # repl_vars
+  with_items: "{{ repl_vars }}"
+  when: item.slavehost == inventory_hostname and item.repl_tags == repl_tags
+
+# 2.5 set the master server information ------------
+# Replication start steps: stop slave, set master info, start slave.
+- name: Stop slave
+  shell: mysql -NBe 'STOP SLAVE'
+  with_items: "{{ repl_vars }}"
+  when: item.slavehost == inventory_hostname and item.repl_tags == repl_tags
+
+- name: Setting master server information on slave server
+  command: >
+    mysql -NBe "CHANGE MASTER TO
+    MASTER_HOST='localhost',
+    MASTER_PORT={{ repl_ports[item.slaveport] }},
+    MASTER_USER='{{ item.repl_user }}',
+    MASTER_PASSWORD='{{ password_vault.mysql_user[item.repl_user] }}',
+    MASTER_AUTO_POSITION = 1
+    FOR CHANNEL '{{ item.masterhost }}';"
+  with_items: "{{ repl_vars }}"
+  when: item.slavehost == inventory_hostname and item.repl_tags == repl_tags
+
+# 3. start replication ------------
+- name: Start slave
+  shell: mysql -NBe 'START SLAVE'
+  with_items: "{{ repl_vars }}"
+  when: item.slavehost == inventory_hostname and item.repl_tags == repl_tags

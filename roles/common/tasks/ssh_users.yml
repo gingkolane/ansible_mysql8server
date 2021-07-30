@@ -1,0 +1,106 @@
+# Role for managing ssh users, created by Chloe
+#
+# This role looks for variable ssh_users, group_vars or host_vars
+# Role used ansible module "user", user means ssh user, and I user ssh_users to define its variables
+# https://docs.ansible.com/ansible/latest/modules/user_module.html?highlight=user
+#
+# Role created on reference:
+# http://minimum-viable-automation.com/ansible/managing-users-accounts-ansible/
+# https://docs.ansible.com/ansible/2.5/modules/user_module.html
+
+#  Related file:
+#   atadminpublic.txt
+
+# https://docs.ansible.com/ansible/2.6/modules/group_module.html
+- name: create same name group, ensure it exist
+  group:
+    name: "{{ item.group }}"
+    state: present
+  with_items:
+    - "{{ ssh_users }}"
+
+- name: create ssh users
+  user:
+    name: "{{ item.name }}"
+    password: "{{ item.password }}"
+    group: "{{ item.group }}"
+    groups: "{{ item.groups }}"
+    home: "/home/{{ item.name }}"
+    create_home: yes
+    shell:  /bin/bash
+    state: present
+    append: yes
+    update_password: always
+    # system: yes
+  with_items:
+    - "{{ ssh_users }}"
+
+# password need to have '' outside
+# https://serversforhackers.com/c/create-user-in-ansible
+# python -c 'import crypt,getpass; print(crypt.crypt(getpass.getpass(), crypt.mksalt(crypt.METHOD_SHA512)))'
+
+# Did you perhaps leave the trailing slash at the end of /bin/bash?
+# https://unix.stackexchange.com/questions/165174/su-cannot-execute-bin-bash
+
+# https://docs.ansible.com/ansible/2.5/modules/authorized_key_module.html
+# https://docs.ansible.com/ansible/latest/user_guide/become.html
+- name: add authorized keys
+  become: yes
+  become_method: su
+  become_user: "{{ item.name }}"
+  authorized_key:
+    user: "{{ item.name }}"
+    state: present
+    # key: "{{ lookup('file', 'files/'+ssh_users.name+'public.txt') }}"
+    key: "{{ lookup('file', 'group_vars/keyfiles/{{item.publickey}}') }}"
+  with_items:
+    - "{{ ssh_users }}"
+
+# If need to remove a user, use below in playbook
+# - name: "Remove old user accounts"
+#   user:
+#     name: "{{ add username here }}"
+#     state: absent
+#     remove: yes
+
+# =======================
+# NOTES:
+# If we added the authorized_keys using root, we have to change directory and folder permissions and priviledges.
+# So it is a lot better to use su to access server through new user.
+# # https://docs.ansible.com/ansible/latest/modules/file_module.html
+# - name: User file module to set attributes, change directory ownership from root to user
+#   file:
+#     path=/home/{{ item.name }}
+#     state=directory
+#     owner={{ item.name }}
+#     group={{ item.group|default(item.name)  }}
+#     recurse=yes
+#   with_items:
+#      - "{{ ssh_users }}"
+#
+# - name: permissions ensure 0700 for ~/.ssh
+#   file:
+#     path=/home/{{ ssh_users.name }}/.ssh
+#     state=directory
+#     mode=0700
+#
+# - name: set permission 0644 for the authorized_key file
+#   file:
+#     path=/home/{{ ssh_users.name }}/.ssh/authorized_keys
+#     state=file
+#     mode=0644
+#
+# Note. vivian used this method:
+# Create a ssh user specially for ssh forwarding -----------------
+# - name: Create an ssh user for sshforwarding
+#   user:
+#     name: sshgate
+#     shell: /sbin/nologin
+#   register: sshcreate_result
+#
+# - name: Set authorized key for sshgate user took from file
+#   authorized_key:
+#     user: sshgate
+#     state: present
+#     key: "{{ lookup('file', 'templates/sshgatepublic.j2') }}"
+#   when: sshcreate_result is succeeded

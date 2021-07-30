@@ -1,0 +1,27 @@
+---
+# Handlers used in roles and playbooks
+# About how to use handlers
+# https://docs.ansible.com/ansible/latest/user_guide/playbooks_intro.html#handlers-running-operations-on-change
+# About use of service module
+# https://docs.ansible.com/ansible/latest/modules/service_module.html#service-module
+# service status choices: reloaded, restarted, started, stopped
+
+# handlers:
+
+- name: reload firewalld #this is the name to use in notify
+  service:
+    name: firewalld
+    state: reloaded
+
+# service sshd seems to have some issue with ansible, use systemd
+# https://docs.ansible.com/ansible/latest/modules/systemd_module.html?highlight=systemd
+- name: reload sshd
+  systemd:
+    name: sshd
+    daemon_reload: yes  #daemon-reload to pick up config changes
+    state: restarted
+
+- name: restart sshd
+  systemd:
+    name: sshd
+    state: restarted

@@ -1,0 +1,55 @@
+---
+# ==============================================================================
+# This code is to create users
+
+# - name: Ensure MySQL users are present.
+#   mysql_user:
+#     name: "{{ item.name }}"
+#     host: "{{ item.host | default('localhost') }}"
+#     password: "{{ item.password }}"
+#     priv: "{{ item.priv | default('*.*:USAGE') }}"
+#     state: "{{ item.state | default('present') }}"
+#     append_privs: "{{ item.append_privs | default('no') }}"
+#     encrypted: "{{ item.encrypted | default('no') }}"
+#   with_items: "{{ mysql_user }}"
+#   no_log: true
+# ==============================================================================
+
+# .my.cnf is to put the credentials informations
+- name: copy .my.cnf file with root password credentials
+  template:
+    src: root-my.cnf.j2
+    dest: "{{ mysql_root_home }}/.my.cnf"
+    # dest: ~/.my.cnf
+    mode: 0600
+
+# -------------- create and delete users --------------------------
+# - name: Delete users
+#   mysql_user:
+#     name: "{{ item.name }}"
+#     host: "{{ item.host|default('localhost') }}"
+#     state: absent
+#   with_items:
+#     - "{{ mysql_user }}"
+#   when: mysql_user|default('') != '' and item.state == 'absent'
+
+- name: Create users - with database and table level privs
+  mysql_user:
+    name: "{{ item[0].name }}"
+    # password: "{{ password_vault.mysql_user[item[0].name]|default(password_vault.mysql_user.default) }}"
+    password: "{{ item[0].password|default('') }}"
+    host: "{{ item[0].host|default('localhost') }}"
+    priv: "{{ item[1].db }}.{{ item[1].tb|default('*') }}:{{ mysql_privgroup[item[1].privgroup] }}"
+    append_privs: yes
+    state: present
+  with_subelements:
+    - "{{ mrd_user }}"
+    - priv
+  when: (mrd_user is defined) and item[0].state == 'present' and (item[1].cl is undefined)
+
+# - name: Create users - with column privs
+#   shell: mysql -NBe "GRANT {{ item[1].privgroup }}({{ item[1].cl }}) ON {{ item[1].db }}.{{ item[1].tb }} TO '{{ item[0].name }}'@'{{ item[0].host }}'"
+#   with_subelements:
+#     - "{{ mrd_user }}"
+#     - priv
+#   when: (mrd_user is defined) and item[0].state == 'present' and (item[1].cl is defined)
