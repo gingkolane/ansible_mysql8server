@@ -1,0 +1,49 @@
+---
+# Basic server setup
+# ===================================================================
+# This ansible is to the first playbook to run after a server is spinned
+# Tasks include:
+#   1. common installs
+#   2. add a ansible tower user
+#   3. Some basic security configuration for sshd, firewalld and selinux
+# the related variables is each group_vars
+# ===================================================================
+
+- name: set up database servers
+  hosts: all
+  become: true
+  become_method: sudo
+  ignore_errors: yes
+  vars_files:
+    - host_vars/dbServer.yml
+  
+  tasks:
+  - name: run initial install of common setup
+    include_role:
+      name: common
+      tasks_from: main.yml
+
+  - name: secure install mysql8
+    include_role:
+      name: mysql8
+      tasks_from: mysql_install8.yml
+
+  - name: configure sshd, install firewalld and selinux
+    include_role:
+      name: common
+      tasks_from: securityconfig.yml
+
+  - name: Use custom mysql port in firewalld and selinux
+    include_role:
+      name: mysql8
+      tasks_from: mysql_security.yml
+
+  - name: create database
+    include_role:
+      name: mysql8
+      tasks_from: databases.yml
+
+  - name: create users
+    include_role:
+      name: mysql8
+      tasks_from: users.yml
