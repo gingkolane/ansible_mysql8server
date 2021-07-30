@@ -53,3 +53,30 @@
 #     - "{{ mrd_user }}"
 #     - priv
 #   when: (mrd_user is defined) and item[0].state == 'present' and (item[1].cl is defined)
+
+
+
+#  -----------------Assign mysql roles to user---------------------------
+
+# mysql_role is stored in the user table of mysql and is considered a composite user.
+#6.3.4 Using Roles
+# A MySQL role is a named collection of privileges.
+
+# The following list summarizes role-management capabilities provided by MySQL:
+#
+# Step 1: CREATE ROLE and DROP ROLE enable roles to be created and removed.
+# Step 2: GRANT and REVOKE enable privilege assignment and revocation for user accounts and roles.
+# Step 3: SET DEFAULT ROLE specifies which account roles are active by default.
+# Step 4: The mandatory_roles and activate_all_roles_on_login system variables enable defining mandatory roles and automatic activation of granted roles when users log in to the server.
+
+# Ansible does not have a module for mysql role creation at if 10/25/2018 because role is a new concept in mysql8
+# If we want to use roles, we have to use sql commands directly with four steps to integrate the role concept into our code base.
+# Our previous way of using combined privgroup, seems much easier.
+# So we will keep using our own priv group design until when ansible has role module and its usage easier.
+
+# Other role related sql command:
+#  SHOW GRANTS displays privilege and role assignments for user accounts and roles.
+#  SET ROLE changes the active roles within the current session.
+# The CURRENT_ROLE() function displays the active roles within the current session.
+
+
