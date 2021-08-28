@@ -15,14 +15,6 @@
 #   no_log: true
 # ==============================================================================
 
-# .my.cnf is to put the credentials informations
-- name: copy .my.cnf file with root password credentials
-  template:
-    src: root-my.cnf.j2
-    dest: "{{ mysql_root_home }}/.my.cnf"
-    # dest: ~/.my.cnf
-    mode: 0600
-
 # -------------- create and delete users --------------------------
 # - name: Delete users
 #   mysql_user:
@@ -42,17 +34,19 @@
     priv: "{{ item[1].db }}.{{ item[1].tb|default('*') }}:{{ mysql_privgroup[item[1].privgroup] }}"
     append_privs: yes
     state: present
+    login_user: "{{ db_rootuser_name }}"
+    login_password: "{{ db_rootuser_password }}"
   with_subelements:
-    - "{{ mrd_user }}"
+    - "{{ db_users }}"
     - priv
-  when: (mrd_user is defined) and item[0].state == 'present' and (item[1].cl is undefined)
+  when: (db_users is defined) and item[0].state == 'present' and (item[1].cl is undefined)
 
 # - name: Create users - with column privs
 #   shell: mysql -NBe "GRANT {{ item[1].privgroup }}({{ item[1].cl }}) ON {{ item[1].db }}.{{ item[1].tb }} TO '{{ item[0].name }}'@'{{ item[0].host }}'"
 #   with_subelements:
-#     - "{{ mrd_user }}"
+#     - "{{ db_users }}"
 #     - priv
-#   when: (mrd_user is defined) and item[0].state == 'present' and (item[1].cl is defined)
+#   when: (db_users is defined) and item[0].state == 'present' and (item[1].cl is defined)
 
 
 
@@ -78,5 +72,3 @@
 #  SHOW GRANTS displays privilege and role assignments for user accounts and roles.
 #  SET ROLE changes the active roles within the current session.
 # The CURRENT_ROLE() function displays the active roles within the current session.
-
-

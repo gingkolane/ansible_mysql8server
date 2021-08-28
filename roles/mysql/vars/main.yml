@@ -1,0 +1,113 @@
+---
+
+# Custom settings for my.conf, different from default
+# ========================================================================
+
+# [client-server]
+
+# Files in mysql_config_include_dir can override settings from this file!
+# Take out # if want to include all files from the config directory in /etc/my.cnf.d
+# includedir /etc/my.cnf.d
+
+# [client]
+
+# [mysqld]
+
+# MySQL networking settings---------
+
+# By default, the MySQL server listens for connections only from localhost through unix socket or 127.0.0.1 through TCP/IP which means it can be accessed only by applications running on the same host.
+# To accept connections from all host IPv4 interfaces, set bind_address to 0.0.0.0, 
+# To accept connections from IPv6, use ::
+mysqld_bind_address: '0.0.0.0'
+
+# encrypt you mysql connection
+# mysql_require_secure_transport: "ON"
+
+# When connection does not disconnect, it takes up connection number, So below we set timeout variables. We used to do kill processes manually.
+# The number of seconds the server waits for activity on a noninteractive connection before closing it.
+mysqld_wait_timeout: "600"
+
+#The number of seconds that the mysqld server waits for a connect packet before responding with Bad handshake. The default value is 10 seconds.
+#Increasing the connect_timeout value might help if clients frequently encounter errors of the form Lost connection to MySQL server at ''
+mysqld_connect_timeout: "600"
+#The number of seconds the server waits for activity on an interactive connection before closing it
+mysqld_interactive_timeout: "600"
+mysqld_max_connect_errors: "10000"
+# If dns targeting is needed or not https://www.vionblog.com/skip-name-resolve-to-speed-up-mysql-and-avoid-problems/
+# Do not resolve host names when checking client connections. Use only IP addresses. If you use this option, all Host column values in the grant tables must be IP addresses.
+mysqld_skip_name_resolve: "ON"
+
+# Memory settings different from default--------------------------------------
+# default values optimized ~512MB RAM, below are for RAM=4GB. So don't need to change host_vars if 4GB RAM, otherwise change them in host_vars. (memory size measurenment: 16M=16*1024*1024)
+
+# Maximum size of a sendable packet. Both the client and the server have their own max_allowed_packet variable. This is for server.
+mysqld_max_allowed_packet: "512M"
+# max_connections sets the maximum amount of concurrent connections (151 by default). A higher setting allows more concurrent requests, but may slow down the server.
+# table_open_cache is related to max_connections. For example, for 200 concurrent running connections, specify a table cache size of at least 200 * N, where N is the maximum number of tables per join in any of the queries which you execute. You must also reserve some extra file descriptors for temporary tables and files.
+mysqld_max_connections: "500"
+
+# The maximum size of internal in-memory temporary tables. The actual limit is determined from whichever of the values of tmp_table_size and max_heap_table_size is smaller.
+# Increase the value if you do many advanced GROUP BY queries and you have lots of memory.
+mysqld_tmp_table_size: "64M"
+mysqld_max_heap_table_size: "64M"
+
+mysqld_table_open_cache: "5000"
+mysqld_thread_cache_size: "10"
+
+# Each thread that does a sequential scan for a MyISAM table allocates a buffer of this size (in bytes) for each table it scans.
+mysqld_read_buffer_size: "1M"
+# This variable is used for reads for multi-Range Read optimization. Setting the variable to a large value can improve ORDER BY performance by a lot. However, this is a buffer allocated for each client,
+mysqld_read_rnd_buffer_size: "4M"
+# Each session that must perform a sort allocates a buffer of this size.
+mysqld_sort_buffer_size: "1M"
+# The minimum size of the buffer that is used for plain index scans, range index scans, and joins that do not use indexes and thus perform full table scans. However, normally, the best way to get fast joins is to add indexes.
+mysqld_join_buffer_size: "262144"
+# The maximum permitted result length in bytes for the GROUP_CONCAT() function. The default is 1024.
+mysqld_group_concat_max_len: "1024"
+
+
+# InnoDB settings different from default----------------------------------------
+mysqld_innodb_flush_method: O_DIRECT
+# Set innodb_buffer_pool_size up to 70% of RAM but beware of setting too high
+# For best efficiency, specify a combination of innodb_buffer_pool_instances and innodb_buffer_pool_size so that each buffer pool instance is at least 1GB.
+# The default value for _instances is 8 when innodb_buffer_pool_size is greater than or equal to 1GB. Otherwise, the default is 1.
+mysqld_innodb_buffer_pool_size: "2G"  # 50% RAM
+mysqld_innodb_buffer_pool_instances: "2"
+# Set innodb_log_file_size to 25% of buffer pool size.
+mysqld_innodb_log_file_size: "512M"
+mysqld_innodb_log_buffer_size: "64M"
+
+# enable slow_query_log: You can use the slow query log to help determine which database queries take a long time to run.
+mysqld_slow_query_log: "1" 
+
+# Other settings-----------------------------------
+
+# https://dev.mysql.com/doc/refman/8.0/en/sql-mode.html#sql-mode-setting
+# The default SQL mode in MySQL 8.0 includes these modes: ONLY_FULL_GROUP_BY, STRICT_TRANS_TABLES, NO_ZERO_IN_DATE, NO_ZERO_DATE, ERROR_FOR_DIVISION_BY_ZERO, and NO_ENGINE_SUBSTITUTION.
+# mysql_sql_mode: STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_AUTO_VALUE_ON_ZERO,NO_ENGINE_SUBSTITUTION,NO_ZERO_DATE,NO_ZERO_IN_DATE,ONLY_FULL_GROUP_BY
+# mysql_sql_mode: ""
+
+# If set to 1, table names are stored in lowercase on disk and comparisons are not case sensitive.
+mysqld_lower_case_table_names: "1"
+# Enable system scheduler, default on after 8.0.3
+mysqld_event_scheduler: "ON"
+#  This option causes SYSDATE() to be a synonym for NOW(). SYSDATE() by default returns the time at which it executes, not the time at which the statement in which it occurs begins executing.
+mysqld_sysdate_is_now: "ON"
+# Disabling symbolic-links is recommended to prevent assorted security risks
+mysqld_symbolic_links: "0"
+# default_authentication_plugin, mysql8 default is "caching_sha2_password", Digital Ocean set it to "mysql_native_password"
+mysqld_default_authentication_plugin: "mysql_native_password"
+
+# Replication related configuration settings --------------------
+# the server logs all statements that change data to the binary log, which is used for backup and replication
+# Turn this on when setting up mysql replication
+mysqld_log_bin: "OFF"
+# More To-be-added
+
+
+# [mysqldump]-----------------
+# mysqldump settings different from default-------------------------------------
+mysqldump_set_gtid_purged: "ON"
+mysqldump_max_allowed_packet: "1G"
+
+#==============================================================================

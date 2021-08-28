@@ -1,0 +1,91 @@
+{{ ansible_managed | comment }}
+
+# The MySQL server has many operating parameters,in the form of system variable, server options and status variables
+# Installation came with default configuration, and my.cnf gives user set options.
+# A full list of options can be found here:
+https://dev.mysql.com/doc/refman/8.0/en/server-option-variable-reference.html
+
+# Common configuration adjustments are included in ./template/my.cnf and their respective are in ./vars/main.yml
+
+# This template add prefixes to each option groups: mysql_ for mysql client, mysqld_ for mysqld server, mysqldump_ for mysqldump program
+
+#===============================================================================
+[client-server]
+
+# Files in mysql_config_include_dir can override settings from this file!
+# yum repo install creates default include directory at /etc/my.cnf.d, 
+# include all files from the config directory, by default it is commented out
+!includedir /etc/my.cnf.d
+
+# Replication related configurations, put in repl-my.cnf.j2 and templates to /etc/my.cnf.d at replication setup
+
+!includedir /etc/my.cnf.d
+
+#===============================================================================
+
+[client]
+
+port = {{ mysql_port }}
+
+#===============================================================================
+
+[mysqld]
+
+# default mysqld server options-------------
+datadir = {{ mysqld_datadir }}
+socket = {{ mysqld_socket }}
+pid_file = {{ mysqld_pid_file }}
+log_error= {{ mysqld_log_error }}
+
+# mysqld networking settings-------------------------
+port = {{ mysqld_port }}
+bind-address = {{ mysqld_bind_address }}
+wait_timeout = {{ mysqld_wait_timeout }}
+connect_timeout= {{ mysqld_connect_timeout }}
+interactive_timeout= {{mysqld_interactive_timeout}}
+max_connect_errors = {{ mysqld_max_connect_errors }}
+skip_name_resolve = {{ mysqld_skip_name_resolve }}
+
+# Memory settings---------------------------
+max_allowed_packet = {{ mysqld_max_allowed_packet }}
+max_connections = {{ mysqld_max_connections }}
+
+tmp_table_size = {{ mysqld_tmp_table_size }}
+max_heap_table_size = {{ mysqld_max_heap_table_size }}
+
+table_open_cache = {{ mysqld_table_open_cache }}
+thread_cache_size = {{ mysqld_thread_cache_size }}
+
+read_buffer_size = {{ mysqld_read_buffer_size }}
+read_rnd_buffer_size = {{ mysqld_read_rnd_buffer_size }}
+sort_buffer_size = {{ mysqld_sort_buffer_size }}
+join_buffer_size = {{ mysqld_join_buffer_size }}
+group_concat_max_len = {{ mysqld_group_concat_max_len }}
+
+# InnoDB settings--------------------
+innodb_flush_method = {{ mysqld_innodb_flush_method }}
+innodb_buffer_pool_size = {{ mysqld_innodb_buffer_pool_size }}
+innodb_buffer_pool_instances = {{ mysqld_innodb_buffer_pool_instances }}
+innodb_log_file_size = {{ mysqld_innodb_log_file_size }}
+innodb_log_buffer_size = {{ mysqld_innodb_log_buffer_size }}
+
+# Slow query log settings ------------------------------
+slow_query_log = {{ mysqld_slow_query_log }}  
+
+# Other settings-------------------------------------
+lower_case_table_names = {{ mysqld_lower_case_table_names}}
+event_scheduler =  {{ mysqld_event_scheduler }}
+sysdate-is-now = {{ mysqld_sysdate_is_now}}
+symbolic-links = {{ mysqld_symbolic_links }}
+default_authentication_plugin = {{ mysqld_default_authentication_plugin }}
+
+# Replication related settings-------------------------------------
+log_bin = {{ mysqld_log_bin }}
+
+#===============================================================================
+[mysqldump]
+# Retrieve rows for a table from the server a row at a time
+quick
+set-gtid-purged = {{mysqldump_set_gtid_purged}}
+max-allowed-packet = {{mysqldump_max_allowed_packet}}
+

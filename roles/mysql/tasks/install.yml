@@ -1,0 +1,143 @@
+---
+# This code is to install MySQL8.0 and apply our custom root user etc.
+# Previously for mysql5.7, we download and install mysql using shell command ----------------
+# shell: rpm -Uvh http://dev.mysql.com/get/mysql57-community-release-el7-11.noarch.rpm
+# For mysql 8, We install mysql using yum repository.
+# The MySQL Yum repository provides a simple and convenient way to install and update MySQL products with the latest software packages using Yum.
+# DigitalOcean Centos8 droplet has epel repo pre-installed, and the repo includes mysql yum repository. 
+
+# Installation using yum install is a little different from install mysql using rpm -Uvh
+# yum install create at installation preset configuration and related files, including
+# 1. data directory initialization may be done for you automatically, include: my.cnf, my.cnf.d
+# 2. startup and shutdown managed by systemd
+# 3. MySQL server mysqld should be started by the local mysql operating system user. Starting by another operating system user is not supported by the init scripts that are included as part of the MySQL repositories.
+  
+
+# install.yml # necessary vars: mysql_server_id 
+
+- name: Install the mysql packages
+  yum: 
+    name: 
+      - mysql-server
+      - python2-PyMySQL
+      - python3-PyMySQL
+    state: installed
+# Installing mysql-server installs mysql, mysql-common too as its dependencies. 
+# MySQL secure install requires: The PyMySQL (Python 2.7 and Python 3.X) or MySQL-python (Python 2.X) module is required."}
+# python2 and python3 will be installed as dependencies
+
+- name: Start the mysql services
+  systemd: 
+    name: mysqld 
+    state: started 
+    enabled: yes
+
+# # 3. mysql_secure_installation automatically creates a temporary password to default root user and requre us change it before doing anything else -----------------------
+# - name: get automatically created temporary password from /var/log/mysqld.log
+#   shell: cat /var/log/mysqld.log | grep "temporary password"
+#   register: mysql_temp_rootpass
+
+# - name: Give default root user a temporary password, so that we can login and create our custom root user
+#   shell: >
+#     mysql -NBe
+#     'ALTER USER root@localhost IDENTIFIED WITH mysql_native_password BY "87jude7Hu55_9";'
+#     -u root --password='{{ mysql_temp_rootpass.stdout.split(': ')[-1] }}'
+#     --connect-expired-password=True
+
+# For digitalOcean's Centos8 server, mysql server is initialized using mysqld --initialize-insecure and 
+# root@localhost is created with an empty password. 
+# If install with command line, you'd use mysql_secure_installation, a command-line utility 
+# that automates much of the process of securing a MySQL installation.
+# With ansible, we will not run mysql_secure_installation
+
+- name: login using default initial root user with empty password, and creates db root user
+  mysql_user:
+    name: "{{ db_rootuser_name }}" 
+    host: "{{ item }}"
+    password: "{{ db_rootuser_password}}" 
+    # encrypted: yes
+    priv: '*.*:ALL,GRANT'
+    state: present
+    login_user: root
+    login_password: ""
+  with_items:
+    - localhost  # On the same machine, myslq client users connect to mysql server using unix socket
+    - 127.0.0.1   # On the same machine, allow mysql client users to connect to mysql server using TCP/IP socket on reserved MySQL network port 127.0.0.1
+# The server must grant privileges to client users for specifically 127.0.0.1. The client must use -h 127.0.0.1 to go through the tunnel instead of connecting via a local socket.
+
+# # Log in using new custom root user and provide password using root-my.cnf instead of login_user and login_password
+# - name: copy .my.cnf file with new root user password credentials
+#   template:
+#     src: root-my.cnf.j2
+#     # dest: ~/.my.cnf
+#     dest: "{{ mysql_root_home }}/.my.cnf"
+#     mode: 0600
+
+# 4. remove the default users and databases --------------------------
+- name: Remove the default 'root' user
+  mysql_user:
+    name: root
+    host_all: yes
+    login_user: "{{ db_rootuser_name }}"
+    login_password: "{{ db_rootuser_password}}" 
+    state: absent
+
+- name: Ensure anonymous users are not in the database
+  mysql_user:
+    name: ''
+    host_all: yes
+    login_user: "{{ db_rootuser_name }}"
+    login_password: "{{ db_rootuser_password}}" 
+    state: absent
+
+- name: remove the test database
+  mysql_db:
+    name: test
+    state: absent
+    login_user: "{{ db_rootuser_name }}"
+    login_password: "{{ db_rootuser_password}}" 
+  notify:
+    - restart mysql
+
+- name: Replace the preset my.cnf with our own my.cnf configuration file
+  template:
+    src: my.cnf.j2
+    dest: /etc/my.cnf
+    # owner: root
+    # group: root
+    # mode: 0644
+
+# --------- 1. Firewalld security configuration-----------------------
+
+- name: remove default mysql port
+  firewalld:
+    service: mysql
+    permanent: true
+    state: disabled
+  notify:
+  - reload firewalld
+
+- name: open custom mysql client port
+  firewalld:
+    port: "{{ mysql_port }}/tcp"
+    permanent: true
+    state: enabled
+  notify:
+  - reload firewalld
+
+# ----------2. Selinux security configurations--------------------------------
+- name: Open specified mysql port in selinux
+  seport:
+    ports: "{{ mysql_port }}"
+    proto: tcp
+    setype: mysqld_port_t
+    state: present
+
+- name: Configure SELinux to start mysql on any port
+  seboolean:
+    name: mysql_connect_any
+    state: true
+    persistent: yes
+
+# -----------3. database connection via ssh tunneling------------------------
+# xxxxxxxxxxxxxxxxxxx

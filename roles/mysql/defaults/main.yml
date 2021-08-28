@@ -1,0 +1,20 @@
+---
+# Defaults set by DO's Centos8 yum install 
+
+# Defaults set in /etc/my.cnf
+# [client-server]
+
+# Files in mysql_config_include_dir can override settings from this file!
+# include all files from the config directory, by default it is commented out
+# includedir /etc/my.cnf.d
+
+# Nothing defined for client defaults in /etc/my.cnf.d/client.cnf 
+# [client]
+
+
+# defaults set in /etc/my.cnf.d/mysql-server.cnf 
+# [mysqld]
+mysqld_datadir: /var/lib/mysql
+mysqld_socket: /var/lib/mysql/mysql.sock
+mysqld_pid_file: /run/mysqld/mysqld.pid
+mysqld_log_error: /var/log/mysql/mysqld.log

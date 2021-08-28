@@ -9,20 +9,14 @@
 
 # ------------------create database ------------------------------
 
-# ensure mysql login via root, .my.cnf is to put the root credentials for login
-- name: copy .my.cnf file with root password credentials
-  template:
-    src: root-my.cnf.j2
-    # dest: ~/.my.cnf
-    dest: "{{ mysql_root_home }}/.my.cnf"
-    mode: 0600
-
 - name: Create databases
   mysql_db:
     name: "{{ item }}"
     encoding: utf8mb4   #utf8 is alias for utf8mb3 and is depreciated
     collation: utf8mb4_unicode_ci
     state: present
+    login_user: "{{ db_rootuser_name }}"
+    login_password: "{{ db_rootuser_password }}"
   with_items:
     - "{{ mrd_db }}"
   when: mrd_db|default('') != ''
@@ -31,3 +25,5 @@
 # utf8mb4_bin: compares the binary value of characters, so it is case sensitive
 # utf8mb4_unicode_ci: follows the Unicode standard for comparisons.
 # utf8mb4_general_ci: faster but less correct than the unicode collation.
+
+
