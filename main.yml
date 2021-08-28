@@ -12,38 +12,38 @@
 - name: set up database servers
   hosts: all
   become: true
-  become_method: sudo
   ignore_errors: yes
   vars_files:
-    - host_vars/dbServer.yml
+    - group_vars/all.yml
+    - host_vars/River0.yml
   
   tasks:
-  - name: run initial install of common setup
-    include_role:
-      name: common
-      tasks_from: main.yml
+    - name: run initial server setup, dnf-automatic for security update, chrony for time setting
+      include_role:
+        name: basic_server
+        tasks_from: initiate.yml
 
-  - name: secure install mysql8
-    include_role:
-      name: mysql8
-      tasks_from: mysql_install8.yml
+    - name: Secure install mysql
+      include_role:
+        name: mysql
+        tasks_from: install.yml
 
-  - name: configure sshd, install firewalld and selinux
-    include_role:
-      name: common
-      tasks_from: securityconfig.yml
+    - name: add server admin user
+      include_role: 
+        name: basic_server
+        tasks_from: server_users.yml
+    
+    - name: server security implementation
+      include_role: 
+        name: basic_server
+        tasks_from: security.yml
 
-  - name: Use custom mysql port in firewalld and selinux
-    include_role:
-      name: mysql8
-      tasks_from: mysql_security.yml
+    - name: create database
+      include_role:
+        name: mysql
+        tasks_from: databases.yml
 
-  - name: create database
-    include_role:
-      name: mysql8
-      tasks_from: databases.yml
-
-  - name: create users
-    include_role:
-      name: mysql8
-      tasks_from: users.yml
+    - name: create db users
+      include_role:
+        name: mysql
+        tasks_from: db_users.yml
