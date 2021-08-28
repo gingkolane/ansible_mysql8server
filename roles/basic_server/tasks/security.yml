@@ -1,0 +1,67 @@
+---
+# ---------------Manage ssh security configurations-------------------
+# change default ssh port: Port {{ssh_port}}
+# Disable root login via SSH: PermitRootLogin yes
+- name: copy sshd_config file and reset ssh port
+  template: 
+    src: sshd_config.j2 
+    dest: /etc/ssh/sshd_config
+  notify: reload sshd
+
+# ---------------- configure firewalld -----------------------------
+# firewalld is under system modules in ansible module directory
+# https://docs.ansible.com/ansible/latest/modules/firewalld_module.html#firewalld-module
+
+- name: disable default ssh port in firewall
+  firewalld:
+    port: 22/tcp
+    permanent: yes
+    state: disabled
+  notify:
+    - reload firewalld
+
+- name: open custom ports in firewalld, as defined in ssh_port from group_vars/all
+# Note custom application ports need first to be set in its respective config file. For example, ssh_port for sshd_config
+  firewalld:
+    port: "{{ item }}/tcp"
+    permanent: true
+    state: enabled
+  with_items:
+    - "{{ ssh_port }}"
+    - "{{ mysql_port }}"
+# available ansible 2.8, will use this later on.
+# - "{{ mrd_ports | dict2items(key_name='service', value_name='port') | map('port') | list }}"
+  notify:
+    - reload firewalld
+
+
+# ---------- 3. selinux configuration -------------------
+# several modules are related to selinux, they are under system in ansible module directory
+#     selinux, seport, seboolean, sefcontext, selinux_permissive
+
+- name: Turn selinux to permissive mode
+  selinux:
+    policy: targeted
+    state: permissive
+
+- name: start selinux
+  shell: setenforce 1
+
+# https://docs.ansible.com/ansible/latest/modules/seport_module.html?highlight=selinux
+- name: Allow custom ssh port open in selinux
+  seport:
+    ports: "{{ssh_port}}"
+    proto: tcp
+    setype: ssh_port_t
+    state: present
+    reload: yes # Reload SELinux policy after commit.
+
+# https://docs.ansible.com/ansible/latest/modules/selinux_module.html?highlight=selinux
+# - name: turn selinux to enforcing mode
+#   selinux:
+#     policy: targeted
+#     state: enforcing
+#
+# - name: start selinux
+#   shell: setenforce 1
+

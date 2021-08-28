@@ -12,7 +12,7 @@
 #   atadminpublic.txt
 
 # https://docs.ansible.com/ansible/2.6/modules/group_module.html
-- name: create same name group, ensure it exist
+- name: create same name group, or ensure it exist
   group:
     name: "{{ item.group }}"
     state: present
@@ -22,16 +22,21 @@
 - name: create ssh users
   user:
     name: "{{ item.name }}"
-    password: "{{ item.password }}"
+    state: "{{ item.state | default('absent') }}" #  present or absent 
+# Users have a primary group, which is usually the same name as their username. However, users can be assigned one or more secondary groups.
     group: "{{ item.group }}"
     groups: "{{ item.groups }}"
-    home: "/home/{{ item.name }}"
-    create_home: yes
-    shell:  /bin/bash
-    state: present
     append: yes
-    update_password: always
-    # system: yes
+#system user cannot log in to the server 
+    system: "{{ item.system | default('no') }}"
+# system user uid below 1000, non-system users uid higher than 1000
+    uid: "{{ item.uid | default(omit) }}"   
+# To log in: user needs to be assigned a home directory and a shell, usually /bin/bash. 
+# we will always use ssh loging, so will not use password and update_password keywords
+    create_home: yes
+    home: "/home/{{ item.name }}"
+    shell: /bin/bash
+    ssh_key_file: "{{ item.ssh_key_file }}"
   with_items:
     - "{{ ssh_users }}"
 
@@ -44,15 +49,18 @@
 
 # https://docs.ansible.com/ansible/2.5/modules/authorized_key_module.html
 # https://docs.ansible.com/ansible/latest/user_guide/become.html
-- name: add authorized keys
-  become: yes
-  become_method: su
-  become_user: "{{ item.name }}"
+
+- name: add user's public key to remote server's authorized_key file
+  # become: yes
+  # become_method: su
+  # become_user: root
   authorized_key:
     user: "{{ item.name }}"
     state: present
-    # key: "{{ lookup('file', 'files/'+ssh_users.name+'public.txt') }}"
-    key: "{{ lookup('file', 'group_vars/keyfiles/{{item.publickey}}') }}"
+    # key: "{{ lookup('file', 'group_vars/keyfiles/'{item.name}'+'.pub') }}"
+        # key: "{{ lookup('file', 'files/'+ssh_users.name+'public.txt') }}"
+    # key: "{{ lookup('file', 'group_vars/keyfiles/{{ item.publickey }}') }}"
+    key: "{{ lookup('file', '{{ item.ssh_key_file }}') }}"  
   with_items:
     - "{{ ssh_users }}"
 

@@ -1,0 +1,105 @@
+---
+#============================================================================
+# This role installs common programs to all servers after the server initiaion
+
+# Before this, centos8 server was spinned with root user with sysadmin ssh key
+ # Can use yum repolist to check what is installed
+ # Use yum repolist enabled for enabled repo
+# - appstream                                  CentOS Linux 8 - AppStream
+# - baseos                                     CentOS Linux 8 - BaseOS
+# - epel                                       Extra Packages for Enterprise Linux 8 - x86_64
+# - epel-modular                               Extra Packages for Enterprise Linux Modular 8 - x86_64
+# - extras                                     CentOS Linux 8 - Extras
+# Notice the initial DO centos8 server has already included epel(epel-release)
+
+# Tasks in this role include:
+#   1. update all the server packages in centos8 and install epel repo and yum utility
+#   2. chrony and chrony configuration file installation
+#   3. set timezone to New York
+#   4. dnf-automatic and its config file installation
+#
+#  Related templates:
+#   1. chrony.conf.j2
+#   2. dnf-automatic.conf.j2
+#   3. install firewalld
+#   4. Make sure selinux is preinstalled
+
+#===========================================================
+
+
+# ---------------- Configure and install yum and its componets------------
+
+- name: Upgrade all Centos8 server packages
+  yum:
+    name: '*'
+    state: latest
+
+- name: install python, some ansible module require python2 and/or python3
+  yum: 
+    name: 
+      - python2
+      - python3
+    state: installed
+
+# ---------------- chrony installation and configuration for time setting ----------------
+- name: Install chrony
+  yum: 
+    name: chrony 
+    state: present
+
+- name: Copy chrony configuration template file
+  template: 
+    src: chrony.conf.j2 
+    dest: /etc/chrony.conf
+
+- name: Enable and start the Chrony service
+  service: 
+    name: chronyd 
+    state: started 
+    enabled: yes
+
+# ---------------- set timezone ----------------
+# https://docs.ansible.com/ansible/2.5/modules/timezone_module.html
+- name: set timezone to US/Eastern
+  timezone:
+    name: US/Eastern
+
+# ---------------- Dandified YUM (DNF), Install dnf-automatic for automatic update ----------
+- name: dnf-automatic installation
+  package:
+    name: dnf-automatic
+    state: installed
+
+- name: Configure dnf-automatic.conf
+  template:
+    src: automatic.conf.j2
+    dest: /etc/dnf/automatic.conf
+
+- name: Start and enable systemd timer for dnf-automatic
+  command: systemctl enable --now dnf-automatic.timer
+
+# ---------------- install firewalld -----------------------------
+# firewalld is under system modules in ansible module directory
+# https://docs.ansible.com/ansible/latest/modules/firewalld_module.html#firewalld-module
+
+- name: firewall installation
+  yum:
+    name: firewalld
+    state: installed
+
+- name: Enable and start firewalld
+  service: name=firewalld state=started enabled=yes
+
+# # -------------  selinux is preinstalled in Centos8-----------------
+# Check with: yum list installed | grep -e selinux -e policy -e setools
+# Centos 8 preinstalled these related selinux packages
+# libselinux.x86_64                   2.9-5.el8                               @baseos         
+# libselinux-utils.x86_64             2.9-5.el8                               @baseos         
+# policycoreutils.x86_64              2.9-14.el8                              @baseos         
+# policycoreutils-python-utils.noarch 2.9-14.el8                              @baseos         
+# python3-libselinux.x86_64           2.9-5.el8                               @baseos         
+# python3-policycoreutils.noarch      2.9-14.el8                              @baseos         
+# python3-setools.x86_64              4.3.0-2.el8                             @anaconda       
+# rpm-plugin-selinux.x86_64           4.14.3-14.el8_4                         @baseos         
+# selinux-policy.noarch               3.14.3-67.el8                           @baseos         
+# selinux-policy-targeted.noarch      3.14.3-67.el8                           @baseos 
