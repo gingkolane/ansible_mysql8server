@@ -15,7 +15,6 @@
   ignore_errors: yes
   vars_files:
     - group_vars/all.yml
-    - host_vars/River0.yml
   
   tasks:
     - name: run initial server setup, dnf-automatic for security update, chrony for time setting

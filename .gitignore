@@ -1,3 +1,7 @@
 inventory
 /host_vars/*
 /group_vars/*
+mysqld
+.DS_store
+testbook.yml
+*.pdf
